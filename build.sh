@@ -8,5 +8,6 @@ git clone https://github.com/flutter/flutter.git -b stable
 export PATH="$PATH:`pwd`/flutter/bin"
 
 echo "Flutterのビルドを開始します..."
-# 先ほど設定したAPIキーを含めてWebビルドを実行
-flutter build web --dart-define=GEMINI_API_KEY=AIzaSyD4WPCdgC7kKRuS-cbV8IDpSSCLFTOAjnE
+# APIキーはVercelの裏側（Node.js）で安全に読み込まれるため、
+# Flutter側はシンプルなビルドコマンドだけでOKです！
+flutter build web

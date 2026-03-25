@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 void main() {
   runApp(const MyApp());
@@ -56,17 +57,7 @@ class _AlchemistScreenState extends State<AlchemistScreen> {
     });
 
     try {
-      // 実行時に渡すAPIキーを取得
-      const apiKey = String.fromEnvironment('GEMINI_API_KEY');
-      if (apiKey.isEmpty) {
-        throw Exception('APIキーが設定されていません');
-      }
-
-      // Gemini APIのエンドポイント（モデルは一般的な1.5 Flashを指定しています）
-      final url = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=$apiKey');
-
-      // AIへのプロンプト（指示）
+      // AIへのプロンプト（指示）の組み立て
       final prompt = '''
 ユーザーが入力した単語：「${_controller.text}」
 この単語から連想される3Dモデルの「形」と、2色の「カラーグラデーション」を考えてください。
@@ -75,39 +66,37 @@ class _AlchemistScreenState extends State<AlchemistScreen> {
 {"shape": "Diamond", "color1": "#FF5733", "color2": "#33FF57"}
 ''';
 
-      // APIへ送信するデータ
+      // ★ここが変更点：直接Googleではなく、自分のVercelのAPIを叩く
+      // kReleaseMode（本番環境）の判定を使うためのインポートがファイル上部に必要です:
+      // import 'package:flutter/foundation.dart'; を追加してください。
+      
+      final url = kReleaseMode 
+          ? Uri.parse('/api/generate') // Vercelに公開した時の相対URL
+          : Uri.parse('https://ai-candy-maker-2p3w8tqzb-wamikans-projects.vercel.app/api/generate'); // ローカルテスト用（※自分のVercelURLに変えてください）
+
+
+      // APIへ送信するデータ（Flutterからは単語のプロンプトだけを送る）
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "contents": [
-            {
-              "parts": [{"text": prompt}]
-            }
-          ],
-          // JSON形式での出力を強制する設定
-          "generationConfig": {
-            "responseMimeType": "application/json",
-          }
-        }),
+        body: jsonEncode({"prompt": prompt}),
       );
 
       if (response.statusCode == 200) {
         // 結果の解析（パース）
         final responseData = jsonDecode(utf8.decode(response.bodyBytes));
+        // 自作API経由なので、データの取り出し方が少し変わります
         final String aiText = responseData['candidates'][0]['content']['parts'][0]['text'];
         
-        // AIが返したJSON文字列をMapに変換
         final Map<String, dynamic> designData = jsonDecode(aiText);
 
-        // 画面の更新（setState）
         setState(() {
           _shape = designData['shape'] ?? 'Unknown';
           _color1 = _hexToColor(designData['color1'] ?? '#808080');
           _color2 = _hexToColor(designData['color2'] ?? '#808080');
         });
       } else {
-        throw Exception('APIエラー: ${response.statusCode}');
+        throw Exception('サーバーエラー: ${response.statusCode}');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
