@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const MyApp());
@@ -7,116 +9,204 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'カオス錬金術',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const AlchemistScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class AlchemistScreen extends StatefulWidget {
+  const AlchemistScreen({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<AlchemistScreen> createState() => _AlchemistScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _AlchemistScreenState extends State<AlchemistScreen> {
+  final TextEditingController _controller = TextEditingController();
+  bool _isLoading = false;
+  
+  // 初期状態のデザイン
+  String _shape = "未生成";
+  Color _color1 = Colors.grey.shade300;
+  Color _color2 = Colors.grey.shade400;
 
-  void _incrementCounter() {
+  // AIが返す「#FF5733」のような文字列をFlutterのColorに変換する関数
+  Color _hexToColor(String hexString) {
+    String hex = hexString.replaceAll('#', '');
+    if (hex.length == 6) {
+      hex = 'FF$hex'; // 不透明度100%を追加
+    }
+    return Color(int.parse(hex, radix: 16));
+  }
+
+  // Gemini APIを呼び出してデザインを生成する関数
+  Future<void> _generateDesign() async {
+    if (_controller.text.isEmpty) return;
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _isLoading = true;
     });
+
+    try {
+      // 実行時に渡すAPIキーを取得
+      const apiKey = String.fromEnvironment('GEMINI_API_KEY');
+      if (apiKey.isEmpty) {
+        throw Exception('APIキーが設定されていません');
+      }
+
+      // Gemini APIのエンドポイント（モデルは一般的な1.5 Flashを指定しています）
+      final url = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=$apiKey');
+
+      // AIへのプロンプト（指示）
+      final prompt = '''
+ユーザーが入力した単語：「${_controller.text}」
+この単語から連想される3Dモデルの「形」と、2色の「カラーグラデーション」を考えてください。
+形は [Sphere, Cube, Diamond, Star, Cylinder] の中から1つ選んでください。
+出力は必ず以下のJSONフォーマットのみにしてください。
+{"shape": "Diamond", "color1": "#FF5733", "color2": "#33FF57"}
+''';
+
+      // APIへ送信するデータ
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "contents": [
+            {
+              "parts": [{"text": prompt}]
+            }
+          ],
+          // JSON形式での出力を強制する設定
+          "generationConfig": {
+            "responseMimeType": "application/json",
+          }
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // 結果の解析（パース）
+        final responseData = jsonDecode(utf8.decode(response.bodyBytes));
+        final String aiText = responseData['candidates'][0]['content']['parts'][0]['text'];
+        
+        // AIが返したJSON文字列をMapに変換
+        final Map<String, dynamic> designData = jsonDecode(aiText);
+
+        // 画面の更新（setState）
+        setState(() {
+          _shape = designData['shape'] ?? 'Unknown';
+          _color1 = _hexToColor(designData['color1'] ?? '#808080');
+          _color2 = _hexToColor(designData['color2'] ?? '#808080');
+        });
+      } else {
+        throw Exception('APIエラー: ${response.statusCode}');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('エラーが発生しました: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
+        title: const Text('AIカオス錬金術', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
       ),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // --- 結果表示エリア ---
+              Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  // AIの指定した色でグラデーションを描画
+                  gradient: LinearGradient(
+                    colors: [_color1, _color2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _color1.withOpacity(0.6),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 8), // 少し下に影を落として立体感を出す
+                    )
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    _shape,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      shadows: [
+                        Shadow(color: Colors.black45, blurRadius: 10, offset: Offset(2, 2))
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 50),
+              
+              // --- 入力画面エリア ---
+              TextField(
+                controller: _controller,
+                decoration: InputDecoration(
+                  labelText: '錬金したい単語を入力',
+                  hintText: '例：徹夜明けのバグ',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _generateDesign,
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
+                  ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator()
+                      : const Text(
+                          '生成する',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
