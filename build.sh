@@ -9,4 +9,4 @@ export PATH="$PATH:`pwd`/flutter/bin"
 
 echo "Flutterのビルドを開始します..."
 # 先ほど設定したAPIキーを含めてWebビルドを実行
-flutter build web --dart-define=GEMINI_API_KEY=AIzaSyAx1WY-SXU9wuiovlmmYUPjYRIEimhbqXI
+flutter build web --dart-define=GEMINI_API_KEY=AIzaSyD4WPCdgC7kKRuS-cbV8IDpSSCLFTOAjnE
