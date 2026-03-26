@@ -13,7 +13,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'カオス錬金術',
+      title: 'AI錬金術',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -61,7 +61,7 @@ class _AlchemistScreenState extends State<AlchemistScreen> {
       final prompt = '''
 ユーザーが入力した単語：「${_controller.text}」
 この単語から連想される3Dモデルの「形」と、2色の「カラーグラデーション」を考えてください。
-形は [Sphere, Cube, Diamond, Star, Cylinder] の中から1つ選んでください。
+形は [Thorns, Diamond, Heart, Sphere, Teardrop,Star] の中から1つ選んでください。
 出力は必ず以下のJSONフォーマットのみにしてください。
 {"shape": "Diamond", "color1": "#FF5733", "color2": "#33FF57"}
 ''';
@@ -72,7 +72,7 @@ class _AlchemistScreenState extends State<AlchemistScreen> {
       
       final url = kReleaseMode 
           ? Uri.parse('/api/generate') // Vercelに公開した時の相対URL
-          : Uri.parse('https://ai-candy-maker-2p3w8tqzb-wamikans-projects.vercel.app/api/generate'); // ローカルテスト用（※自分のVercelURLに変えてください）
+          : Uri.parse('https://ai-candy-maker-osqltuntt-wamikans-projects.vercel.app/api/generate'); // ローカルテスト用（※自分のVercelURLに変えてください）
 
 
       // APIへ送信するデータ（Flutterからは単語のプロンプトだけを送る）
@@ -113,7 +113,7 @@ class _AlchemistScreenState extends State<AlchemistScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AIカオス錬金術', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('AI錬金術', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Center(
@@ -164,7 +164,7 @@ class _AlchemistScreenState extends State<AlchemistScreen> {
                 controller: _controller,
                 decoration: InputDecoration(
                   labelText: '錬金したい単語を入力',
-                  hintText: '例：徹夜明けのバグ',
+                  hintText: '例：「桜」「昨日のごはん」など',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
